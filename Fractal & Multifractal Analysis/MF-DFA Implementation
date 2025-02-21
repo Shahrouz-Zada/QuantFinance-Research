@@ -1,0 +1,57 @@
+import yfinance as yf
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load S\&P 500 data from Yahoo Finance
+ticker = '^GSPC'
+data = yf.download(ticker, start='2010-01-01', end='2021-12-31')
+close_prices = data['Close'].values
+
+def calculate_mfdfa(data, scale_min, scale_max, scale_res, q_values):
+    scales = np.logspace(np.log10(scale_min), np.log10(scale_max),
+    num=scale_res)
+    flucts = np.zeros((len(q_values), len(scales)))
+    
+    for i, q in enumerate(q_values):
+        for j, s in enumerate(scales):
+            segments = int(np.floor(len(data) / s))
+            rms = np.zeros(segments)
+            for k in range(segments):
+                segment = data[int(k*s):int((k+1)*s)]
+                if len(segment) < 2:  # Ensure the segment length
+                is sufficient for polynomial fitting
+                    continue
+                trend = np.polyfit(np.arange(len(segment)), segment, 1)
+                detrended = segment - np.polyval(trend,
+                np.arange(len(segment)))
+                rms[k] = np.sqrt(np.mean(detrended**2))
+            flucts[i, j] = np.mean(rms**q)**(1/q)
+    
+    return scales, flucts
+
+# Parameters for MF-DFA
+q_values = np.linspace(-10, 10, 21)
+scale_min = 10
+scale_max = 200
+scale_res = 30
+
+# Calculate MF-DFA
+scales, flucts = calculate_mfdfa(close_prices, scale_min, scale_max, 
+scale_res, q_values)
+
+# Save the multifractal features
+mfdfa_features = pd.DataFrame({'Scales': scales})
+for i, q in enumerate(q_values):
+    mfdfa_features[f'Fluctuation_q={q}'] = flucts[i, :]
+mfdfa_features.to_csv('mfdfa_features.csv', index=False)
+
+# Plotting the results
+plt.figure(figsize=(10, 6))
+for i, q in enumerate(q_values):
+    plt.plot(np.log10(scales), np.log10(flucts[i, :]), label=f'q={q}')
+plt.xlabel('log10(scale)')
+plt.ylabel('log10(Fluctuation)')
+plt.legend(loc='best')
+plt.title('MF-DFA of S\&P 500')
+plt.show()
