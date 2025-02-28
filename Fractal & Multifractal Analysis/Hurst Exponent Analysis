@@ -1,0 +1,55 @@
+import numpy as np
+import yfinance as yf
+import matplotlib.pyplot as plt
+
+def rs_analysis(data, window_sizes):
+    rescaled_ranges = []
+    for window in window_sizes:
+        rescaled_range = []
+        for i in range(0, len(data), window):
+            if i + window > len(data):
+                break
+            segment = data[i:i+window]
+            mean = np.mean(segment)
+            Z = np.cumsum(segment - mean)
+            R = max(Z) - min(Z)
+            S = np.std(segment)
+            rescaled_range.append(R / S)
+        rescaled_ranges.append(np.mean(rescaled_range))
+    return rescaled_ranges
+
+# Load S\&P 500 data from Yahoo Finance
+ticker = '^GSPC'  # S\&P 500 index
+data = yf.download(ticker, start='2010-01-01', end='2021-12-31')
+close_prices = data['Close'].values
+
+# Parameters for R/S Analysis
+window_sizes = range(10, 200, 10)
+
+# Calculate R/S Analysis
+rescaled_ranges = rs_analysis(close_prices, window_sizes)
+
+# Plotting the results
+plt.figure(figsize=(10, 6))
+plt.plot(window_sizes, rescaled_ranges, 'o-')
+plt.xlabel('Window size')
+plt.ylabel('Rescaled Range (R/S)')
+plt.title('R/S Analysis of S\&P 500')
+plt.show()
+
+# Estimating the Hurst Exponent
+log_window_sizes = np.log(window_sizes)
+log_rescaled_ranges = np.log(rescaled_ranges)
+hurst_exponent, _ = np.polyfit(log_window_sizes, log_rescaled_ranges, 1)
+print(f"Hurst Exponent: {hurst_exponent}")
+
+# Feature Extraction
+hurst_features = np.array([hurst_exponent])
+
+# Save Extracted Features
+hurst_features_df = pd.DataFrame(hurst_features, columns=['Hurst Exponent'])
+hurst_features_df.to_csv('hurst_features.csv', index=False)
+
+# Verify Saved Features
+loaded_hurst_features = pd.read_csv('hurst_features.csv')
+print(loaded_hurst_features.head())
