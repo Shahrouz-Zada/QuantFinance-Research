@@ -1,0 +1,48 @@
+# Install pyts package
+!pip install pyts yfinance
+
+# Import necessary libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+from pyts.image import RecurrencePlot
+import yfinance as yf
+
+# Load S\&P 500 data from Yahoo Finance
+ticker = '^GSPC'  # S\&P 500 index
+data = yf.download(ticker, start='2010-01-01', end='2021-12-31')
+close_prices = data['Close'].values
+
+# Normalize data
+scaler = MinMaxScaler()
+close_prices_scaled = scaler.fit_transform(close_prices.reshape(-1, 1)).flatten()
+
+# Parameters for Recurrence Plot
+dimension = 3  # Embedding dimension
+time_delay = 1  # Time delay
+threshold = 0.1  # Recurrence threshold
+
+# Recurrence Plot
+rp = RecurrencePlot(threshold=threshold, dimension=dimension, time_delay=time_delay)
+rp_matrix = rp.fit_transform(close_prices_scaled.reshape(1, -1))
+
+# Plot Recurrence Plot
+plt.figure(figsize=(10, 6))
+plt.imshow(rp_matrix[0], cmap='binary', origin='lower')
+plt.title('Recurrence Plot of S\&P 500')
+plt.xlabel('Time')
+plt.ylabel('Time')
+plt.show()
+
+# Feature Extraction
+# Flatten the upper triangular part of the recurrence matrix to use as features
+rp_features = rp_matrix[0][np.triu_indices_from(rp_matrix[0], k=1)]
+
+# Save Extracted Features
+rp_features_df = pd.DataFrame(rp_features)
+rp_features_df.to_csv('rp_features.csv', index=False)
+
+# Verify Saved Features
+loaded_rp_features = pd.read_csv('rp_features.csv')
+print(loaded_rp_features.head())
